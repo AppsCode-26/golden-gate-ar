@@ -24,7 +24,7 @@
   }
   #credit { position: fixed; left: 0; right: 0; bottom: 8px; z-index: 5; text-align: center; font-size: 10px; opacity: .7; }
   #credit a { color: inherit; }
-  #status { font-size: 13px; opacity: .8; min-height: 1em; }
+  #status { font-size: 14px; max-width: 330px; line-height: 1.4; min-height: 1em; }
 </style>
 <script type="importmap">
 {
@@ -103,10 +103,36 @@ function popIn(obj) {
   requestAnimationFrame(step);
 }
 
+// start downloading the AR library + model right away so Start AR is quick
+const mindarModule = import('mindar-image-three');
+const bridgePromise = loadBridge();
+bridgePromise.catch(() => {});
+
+function cameraHelp(e) {
+  const name = (e && e.name) || '';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+    return 'This browser can\'t use the camera here. Open this page in Safari (iPhone) or Chrome (Android).';
+  if (name === 'NotAllowedError' || name === 'SecurityError')
+    return 'Camera is blocked. iPhone: tap "aA" (or the page icon) in the address bar → Website Settings → Camera → Allow, then reload. Also check Settings → Safari → Camera → Ask or Allow.';
+  if (name === 'NotReadableError') return 'The camera is busy in another app. Close it and try again.';
+  return 'Could not start the camera' + (name ? ' (' + name + ')' : '') + '. Reload and try again.';
+}
+
 document.getElementById('go').onclick = async () => {
+  statusEl.textContent = 'Asking for the camera…';
+  // Ask for the camera FIRST, right inside the tap, so iPhone shows the permission popup
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('nomedia');
+    const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment' } });
+    s.getTracks().forEach(t => t.stop());
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = cameraHelp(e);
+    return;
+  }
   statusEl.textContent = 'Loading…';
   try {
-    const { MindARThree } = await import('mindar-image-three');
+    const { MindARThree } = await mindarModule;
     const mindar = new MindARThree({
       container: document.getElementById('ar'),
       imageTargetSrc: './target.mind',
@@ -117,7 +143,7 @@ document.getElementById('go').onclick = async () => {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     addLights(scene, renderer);
 
-    const bridge = await loadBridge();
+    const bridge = await bridgePromise;
     bridge.userData.baseScale = bridge.scale.x;
     bridge.rotation.x = Math.PI / 2;        // stand the bridge up out of the card
     bridge.position.set(0, -0.05, 0);       // centered on the card picture
@@ -145,7 +171,7 @@ document.getElementById('go').onclick = async () => {
     renderer.setAnimationLoop(() => renderer.render(scene, camera));
   } catch (e) {
     console.error(e);
-    statusEl.textContent = 'Could not start the camera: ' + ((e && e.message) || e || 'camera unavailable');
+    statusEl.textContent = e ? 'Something went wrong: ' + (e.message || e) : cameraHelp(null);
   }
 };
 
@@ -162,7 +188,7 @@ document.getElementById('preview').onclick = async () => {
   scene.background = new THREE.Color(0x9cc3e0);
   
   addLights(scene, renderer);
-  const bridge = await loadBridge();
+  const bridge = (await bridgePromise).clone();
   scene.add(bridge);
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 50);
   camera.position.set(1.0, 0.8, 1.6);
