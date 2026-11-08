@@ -39,13 +39,13 @@
 <body>
 <div id="start">
   <h1>🌉 GOLDEN GATE</h1>
-  <p>Tap start, allow the camera, then point your phone at the bridge picture inside the card. Pinch to resize.</p>
+  <p>Tap start, allow the camera, then point your phone at the QR code (or the bridge picture on the card). Pinch to resize.</p>
   <button id="go">Start AR</button>
   <button id="preview" class="secondary">No card? View in 3D</button>
   <div id="status"></div>
 </div>
 <div id="ar"></div>
-<div id="hint">Point at the card picture 📷 · pinch to resize</div>
+<div id="hint">Point at the QR code 📷 · pinch to resize</div>
 <div id="credit">Model: “Golden Gate Bridge 3D Model” by <a href="https://sketchfab.com/damongraphics" target="_blank">damongraphics</a>, <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a></div>
 
 <script type="module">
@@ -135,7 +135,7 @@ document.getElementById('go').onclick = async () => {
     const { MindARThree } = await mindarModule;
     const mindar = new MindARThree({
       container: document.getElementById('ar'),
-      imageTargetSrc: './target.mind',
+      imageTargetSrc: './targets.mind', maxTrack: 1,
       uiScanning: 'no', uiLoading: 'yes',
       filterMinCF: 0.0001, filterBeta: 0.01,
     });
@@ -143,14 +143,21 @@ document.getElementById('go').onclick = async () => {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     addLights(scene, renderer);
 
+    // target 0 = picture inside the card, target 1 = the QR code itself
     const bridge = await bridgePromise;
     bridge.userData.baseScale = bridge.scale.x;
-    bridge.rotation.x = Math.PI / 2;        // stand the bridge up out of the card
-    bridge.position.set(0, -0.05, 0);       // centered on the card picture
-    const anchor = mindar.addAnchor(0);
-    anchor.group.add(bridge);
-    anchor.onTargetFound = () => { hint.style.display = 'none'; popIn(bridge); };
-    anchor.onTargetLost = () => { hint.style.display = 'block'; };
+    bridge.rotation.x = Math.PI / 2;        // stand the bridge up out of the paper
+    bridge.position.set(0, -0.05, 0);
+    const anchors = [mindar.addAnchor(0), mindar.addAnchor(1)];
+    for (const a of anchors) {
+      a.onTargetFound = () => {
+        hint.style.display = 'none';
+        bridge.position.set(0, a === anchors[0] ? -0.05 : 0, 0);
+        a.group.add(bridge);
+        popIn(bridge);
+      };
+      a.onTargetLost = () => { hint.style.display = 'block'; };
+    }
 
     // pinch with two fingers to resize the bridge
     let pinchStart = 0, scaleStart = 1, userScale = 1;
