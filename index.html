@@ -37,8 +37,9 @@
 </script>
 </head>
 <body>
-<div id="start">
+<div id="start" data-version="4">
   <h1>🌉 GOLDEN GATE</h1>
+  <div style="font-size:11px;opacity:.6">v4</div>
   <p>Tap start, allow the camera, then point your phone at the QR code (or the bridge picture on the card). Pinch to resize.</p>
   <button id="go">Start AR</button>
   <button id="preview" class="secondary">No card? View in 3D</button>
@@ -62,7 +63,7 @@ const SEA = -22.4; // water level in the model's own units
 async function loadBridge() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  const gltf = await loader.loadAsync('./bridge.glb');
+  const gltf = await loader.loadAsync('./bridge.glb?v=4');
   const model = gltf.scene;
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
@@ -135,7 +136,7 @@ document.getElementById('go').onclick = async () => {
     const { MindARThree } = await mindarModule;
     const mindar = new MindARThree({
       container: document.getElementById('ar'),
-      imageTargetSrc: './targets.mind', maxTrack: 1,
+      imageTargetSrc: './targets.mind?v=4', maxTrack: 1, warmupTolerance: 2, missTolerance: 10,
       uiScanning: 'no', uiLoading: 'yes',
       filterMinCF: 0.0001, filterBeta: 0.01,
     });
